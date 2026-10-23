@@ -149,6 +149,36 @@
     $("#zoomLevel").textContent = `${Math.round(docZoom * 100)}%`;
     $("#docxPreview").style.zoom = String(docZoom);
   }
+  function syncScheduleFullscreenButton() {
+    const schedule = $("#view-schedule");
+    const active = document.fullscreenElement === schedule || schedule.classList.contains("schedule-fullscreen-fallback");
+    const button = $("#scheduleFullscreen");
+    button.textContent = active ? "Свернуть" : "На весь экран";
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute("aria-label", active ? "Выйти из полноэкранного режима расписания" : "Открыть расписание на весь экран");
+  }
+  async function toggleScheduleFullscreen() {
+    const schedule = $("#view-schedule");
+    if (schedule.classList.contains("schedule-fullscreen-fallback")) {
+      schedule.classList.remove("schedule-fullscreen-fallback");
+      document.body.classList.remove("schedule-fullscreen-lock");
+      syncScheduleFullscreenButton();
+      return;
+    }
+    if (document.fullscreenElement === schedule) {
+      try { await document.exitFullscreen(); } catch {}
+      return;
+    }
+    if (typeof schedule.requestFullscreen === "function") {
+      try {
+        await schedule.requestFullscreen();
+        return;
+      } catch {}
+    }
+    schedule.classList.add("schedule-fullscreen-fallback");
+    document.body.classList.add("schedule-fullscreen-lock");
+    syncScheduleFullscreenButton();
+  }
   async function renderScheduleFile(file, fileName) {
     $("#scheduleFileName").textContent = fileName;
     $("#scheduleFileStatus").textContent = "Чтение документа…";
@@ -202,7 +232,16 @@
   $("#adminOpen").addEventListener("click", requestAdmin); $("#topAdmin").addEventListener("click", requestAdmin);
   $$("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
   $$(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", e => { if (e.target === backdrop) closeModal(backdrop.id); }));
-  document.addEventListener("keydown", e => { if (e.key === "Escape") { closeModal("authModal"); closeModal("adminModal"); } });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeModal("authModal"); closeModal("adminModal");
+      if ($("#view-schedule").classList.contains("schedule-fullscreen-fallback")) {
+        $("#view-schedule").classList.remove("schedule-fullscreen-fallback");
+        document.body.classList.remove("schedule-fullscreen-lock");
+        syncScheduleFullscreenButton();
+      }
+    }
+  });
   $("#authForm").addEventListener("submit", e => {
     e.preventDefault(); const code = $("#passcode").value;
     if (!/^[A-Za-z0-9]{9}$/.test(code)) { $("#authError").textContent = "Введите ровно 9 букв или цифр."; return; }
@@ -257,6 +296,8 @@
   $("#zoomIn").addEventListener("click", () => { docZoom = Math.min(2, +(docZoom + .1).toFixed(2)); updateZoom(); });
   $("#zoomOut").addEventListener("click", () => { docZoom = Math.max(.5, +(docZoom - .1).toFixed(2)); updateZoom(); });
   $("#fitDoc").addEventListener("click", () => { docZoom = 1; updateZoom(); $("#documentCanvas").scrollTop = 0; });
+  $("#scheduleFullscreen").addEventListener("click", toggleScheduleFullscreen);
+  document.addEventListener("fullscreenchange", syncScheduleFullscreenButton);
   $("#docxInput").addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!isAdmin()) { e.target.value = ""; return; }

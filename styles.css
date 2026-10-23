@@ -23,3 +23,40 @@ html[data-device="phone"] .docx-preview{min-width:0;max-width:100%;overflow-wrap
 @media(min-width:760px) and (max-width:1024px){html[data-device="tablet"] .subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){html[data-device="phone"] .welcome-row{flex-direction:column;gap:12px}html[data-device="phone"] .date-card{align-self:flex-end}html[data-device="phone"] .section-heading{flex-wrap:wrap}html[data-device="phone"] .section-pill{margin-left:auto}}
 .nav-icon img{display:block;width:17px;height:17px;object-fit:contain}.date-icon img{display:block;width:23px;height:23px;object-fit:contain}.theme-mark{display:grid;place-items:center;width:20px;height:20px;color:var(--accent);line-height:0}.theme-mark svg{display:block;width:19px;height:19px}
+
+/* Keep the rendered DOCX paper independent from the app's dark/light theme. */
+#documentCanvas{background:#e9edf3}
+#docxPreview{color-scheme:only light;background:#fff;color:#222;isolation:isolate}
+#docxPreview .docx-wrapper{color-scheme:only light}
+#docxPreview .docx{background-color:#fff}
+
+/* Native fullscreen is preferred; the class-based mode covers browsers without the API. */
+#view-schedule:fullscreen,
+#view-schedule.schedule-fullscreen-fallback{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  box-sizing:border-box;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  min-height:0;
+  padding:clamp(14px,3vw,36px);
+  overflow:auto;
+  background:var(--bg);
+  color:var(--text);
+  animation:none;
+}
+body.schedule-fullscreen-lock{overflow:hidden}
+#view-schedule:fullscreen .document-canvas,
+#view-schedule.schedule-fullscreen-fallback .document-canvas{
+  height:min(74vh,1000px);
+  min-height:300px;
+  max-height:none;
+}
+@media(max-width:620px){
+  #view-schedule:fullscreen,
+  #view-schedule.schedule-fullscreen-fallback{padding:12px}
+  #view-schedule:fullscreen .document-canvas,
+  #view-schedule.schedule-fullscreen-fallback .document-canvas{height:68vh;min-height:240px}
+}
