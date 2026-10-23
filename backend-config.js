@@ -1,0 +1,1 @@
+window.STUDENT_HUB_API_BASE = "https://student-hub-api.git94859543-hub.workers.dev";

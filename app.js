@@ -2,16 +2,10 @@
   "use strict";
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
-  const KEYS = { links: "studentHub.links.v1", theme: "studentHub.theme.v1", admin: "studentHub.adminSession.v3" };
-  const SCHEDULE_DB = "studentHub.schedule.v1";
-  const SCHEDULE_STORE = "documents";
+  const KEYS = { theme: "studentHub.theme.v1", adminToken: "studentHub.adminToken.v1" };
   const SCHEDULE_KEY = "schedule.docx";
   const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  // Client-side verification only hides the passcode text; it is not secure authentication.
-  // Use a server-side login/session before deploying with private data.
-  const PASSCODE_SALT_HEX = "9b8d26f788c4913ab8ee655591933106";
-  const PASSCODE_HASH_HEX = "cdbc64734d2fc3e0dcdf7678655bbd736f3bdeafc5acd44937a09ea0e77569f7";
-  const PASSCODE_ITERATIONS = 310000;
+  const API_BASE = String(window.STUDENT_HUB_API_BASE || "").replace(/\/+$/, "");
   const defaults = [
     { id: makeId(), category: "zoom", name: "Математика", url: "https://zoom.us/" },
     { id: makeId(), category: "zoom", name: "Английский язык", url: "https://zoom.us/" },
@@ -28,42 +22,65 @@
   let toastTimer;
 
   function makeId() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
-  function loadLinks() {
-    try {
-      const raw = localStorage.getItem(KEYS.links);
-      if (raw === null) { localStorage.setItem(KEYS.links, JSON.stringify(defaults)); return defaults; }
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter(x => x && typeof x.name === "string" && typeof x.url === "string" && ["zoom", "classroom"].includes(x.category)) : defaults;
-    } catch { return defaults; }
+  function loadLinks() { return defaults; }
+  function getAdminToken() {
+    try { return localStorage.getItem(KEYS.adminToken) || ""; } catch { return ""; }
   }
-  function saveLinks() { localStorage.setItem(KEYS.links, JSON.stringify(links)); renderLinks(); renderAdminLinks(); }
+  async function apiRequest(path, options = {}) {
+    if (!API_BASE) throw new Error("Общий сервер API ещё не настроен.");
+    const headers = new Headers(options.headers || {});
+    const token = getAdminToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`${API_BASE}${path}`, { ...options, headers, cache: "no-store" });
+    if (!response.ok) {
+      const error = new Error(`API request failed (${response.status})`);
+      error.status = response.status;
+      if (response.status === 401 && token) {
+        try { localStorage.removeItem(KEYS.adminToken); } catch {}
+        syncAdminControls();
+      }
+      throw error;
+    }
+    return response;
+  }
+  async function saveLinks() {
+    await apiRequest("/api/state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ links })
+    });
+    renderLinks();
+    renderAdminLinks();
+  }
+  async function loadSharedLinks() {
+    if (!API_BASE) { renderLinks(); return; }
+    try {
+      const response = await apiRequest("/api/state");
+      const state = await response.json();
+      if (state.initialized && Array.isArray(state.links)) links = state.links;
+      renderLinks();
+      renderAdminLinks();
+    } catch (error) {
+      console.error("Не удалось загрузить общие ссылки:", error);
+      links = defaults;
+      renderLinks();
+      showToast("Не удалось загрузить общие данные. Проверьте подключение.");
+    }
+  }
+  async function validateSavedAdminSession() {
+    if (!API_BASE || !getAdminToken()) return;
+    try {
+      await apiRequest("/api/session");
+    } catch (error) {
+      if (error.status === 401) showToast("Срок действия входа истёк. Войдите снова.");
+    }
+  }
   function safeUrl(value) {
     try { const u = new URL(value); return ["http:", "https:"].includes(u.protocol) ? u.href : null; }
     catch { return null; }
   }
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-  }
-  async function verifyPasscode(value) {
-    if (!globalThis.crypto?.subtle) throw new Error("Web Crypto is unavailable");
-    const salt = Uint8Array.from(PASSCODE_SALT_HEX.match(/.{2}/g), byte => Number.parseInt(byte, 16));
-    const key = await globalThis.crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(value),
-      "PBKDF2",
-      false,
-      ["deriveBits"]
-    );
-    const bits = await globalThis.crypto.subtle.deriveBits(
-      { name: "PBKDF2", salt, iterations: PASSCODE_ITERATIONS, hash: "SHA-256" },
-      key,
-      256
-    );
-    const candidate = [...new Uint8Array(bits)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-    if (candidate.length !== PASSCODE_HASH_HEX.length) return false;
-    let difference = 0;
-    for (let i = 0; i < candidate.length; i++) difference |= candidate.charCodeAt(i) ^ PASSCODE_HASH_HEX.charCodeAt(i);
-    return difference === 0;
   }
   function showToast(message) {
     const toast = $("#toast"); toast.textContent = message; toast.classList.add("show");
@@ -117,16 +134,7 @@
     if ($("#authModal").hidden && $("#adminModal").hidden) document.body.style.overflow = "";
   }
   function isAdmin() {
-    try {
-      if (localStorage.getItem(KEYS.admin) === "true") return true;
-      // Preserve an already-unlocked session once when upgrading from the previous version.
-      if (sessionStorage.getItem("studentHub.adminSession.v2") === "true") {
-        localStorage.setItem(KEYS.admin, "true");
-        sessionStorage.removeItem("studentHub.adminSession.v2");
-        return true;
-      }
-    } catch {}
-    try { return sessionStorage.getItem(KEYS.admin) === "true"; } catch { return false; }
+    return Boolean(getAdminToken());
   }
   function syncAdminControls() { $$(".admin-only").forEach(control => { control.hidden = !isAdmin(); }); }
   function requestAdmin() {
@@ -243,58 +251,8 @@
       return false;
     }
   }
-  function openScheduleDatabase() {
-    return new Promise((resolve, reject) => {
-      if (!("indexedDB" in window)) {
-        reject(new Error("IndexedDB недоступен"));
-        return;
-      }
-      const request = indexedDB.open(SCHEDULE_DB, 1);
-      request.onupgradeneeded = () => {
-        if (!request.result.objectStoreNames.contains(SCHEDULE_STORE)) {
-          request.result.createObjectStore(SCHEDULE_STORE);
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error("Не удалось открыть хранилище расписания"));
-      request.onblocked = () => reject(new Error("Хранилище расписания заблокировано"));
-    });
-  }
-  async function readSavedSchedule() {
-    const db = await openScheduleDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SCHEDULE_STORE, "readonly");
-      const request = transaction.objectStore(SCHEDULE_STORE).get(SCHEDULE_KEY);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error || new Error("Не удалось прочитать расписание"));
-      transaction.oncomplete = () => db.close();
-      transaction.onerror = () => { db.close(); reject(transaction.error || new Error("Не удалось прочитать расписание")); };
-    });
-  }
-  async function saveSchedule(file) {
-    const db = await openScheduleDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SCHEDULE_STORE, "readwrite");
-      transaction.objectStore(SCHEDULE_STORE).put(file.slice(0, file.size, DOCX_MIME), SCHEDULE_KEY);
-      transaction.oncomplete = () => { db.close(); resolve(); };
-      transaction.onerror = () => { db.close(); reject(transaction.error || new Error("Не удалось сохранить расписание")); };
-      transaction.onabort = () => { db.close(); reject(transaction.error || new Error("Не удалось сохранить расписание")); };
-    });
-  }
   async function loadDefaultSchedule() {
     $("#scheduleFileName").textContent = SCHEDULE_KEY;
-    try {
-      const saved = await readSavedSchedule();
-      if (saved) {
-        const loaded = await renderScheduleFile(saved, SCHEDULE_KEY);
-        if (loaded) {
-          $("#scheduleFileStatus").textContent = "Расписание открыто";
-          return;
-        }
-      }
-    } catch (error) {
-      console.warn("Не удалось прочитать сохранённое расписание:", error);
-    }
     if (!["http:", "https:"].includes(location.protocol)) {
       $("#scheduleFileStatus").textContent = "";
       $("#scheduleErrorMessage").textContent = "Не удалось загрузить schedule.docx. Проверьте файл и обновите страницу.";
@@ -302,13 +260,18 @@
       return;
     }
     try {
-      const response = await fetch(new URL(SCHEDULE_KEY, document.baseURI), { cache: "no-cache" });
+      const response = API_BASE
+        ? await apiRequest("/api/schedule")
+        : await fetch(new URL(SCHEDULE_KEY, document.baseURI), { cache: "no-cache" });
       if (!response.ok) throw new Error("missing schedule");
       const loaded = await renderScheduleFile(await response.blob(), SCHEDULE_KEY);
+      if (loaded && API_BASE) $("#scheduleFileStatus").textContent = "Общее расписание сайта";
       if (!loaded) $("#scheduleErrorMessage").textContent = `Не удалось отобразить ${SCHEDULE_KEY}. Проверьте файл и обновите страницу.`;
     } catch {
       $("#scheduleFileStatus").textContent = "Не удалось загрузить schedule.docx";
-      $("#scheduleErrorMessage").textContent = "Убедитесь, что schedule.docx находится рядом с приложением, затем обновите страницу.";
+      $("#scheduleErrorMessage").textContent = API_BASE
+        ? "Не удалось получить общее расписание. Проверьте серверное API и обновите страницу."
+        : "Убедитесь, что schedule.docx находится рядом с приложением, затем обновите страницу.";
       $("#emptyDocument").hidden = false;
     }
   }
@@ -343,18 +306,26 @@
     const submitButton = $("#authForm").querySelector("button[type='submit']");
     submitButton.disabled = true;
     try {
-      if (!await verifyPasscode(code)) { $("#authError").textContent = "Неверный код. Проверьте регистр букв и попробуйте ещё раз."; $("#passcode").select(); return; }
+      const response = await apiRequest("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      const result = await response.json();
+      if (!result.token) throw new Error("Сервер не вернул сессию администратора.");
+      localStorage.setItem(KEYS.adminToken, result.token);
+      syncAdminControls();
+      closeModal("authModal"); openModal("adminModal"); renderAdminLinks();
+      showToast("Доступ администратора открыт.");
     } catch (error) {
-      console.error("Не удалось проверить код доступа:", error);
-      $("#authError").textContent = "Не удалось проверить код. Обновите страницу и попробуйте ещё раз.";
-      return;
+      console.error("Не удалось выполнить вход администратора:", error);
+      $("#authError").textContent = error.status === 401
+        ? "Неверный код. Проверьте регистр букв и попробуйте ещё раз."
+        : "Не удалось связаться с сервером. Проверьте настройку API и попробуйте снова.";
+      if (error.status === 401) $("#passcode").select();
     } finally {
       submitButton.disabled = false;
     }
-    try { localStorage.setItem(KEYS.admin, "true"); }
-    catch { try { sessionStorage.setItem(KEYS.admin, "true"); } catch {} }
-    syncAdminControls();
-    closeModal("authModal"); openModal("adminModal"); renderAdminLinks(); showToast("Доступ администратора открыт.");
   });
   $$(".admin-tab").forEach(tab => tab.addEventListener("click", () => {
     adminCategory = tab.dataset.adminCategory;
@@ -365,35 +336,44 @@
     resetLinkForm(); $("#linkForm").hidden = false; $("#linkName").focus();
   });
   $("#cancelLink").addEventListener("click", resetLinkForm);
-  $("#adminLinks").addEventListener("click", e => {
+  $("#adminLinks").addEventListener("click", async e => {
     const edit = e.target.closest("[data-edit]"); const del = e.target.closest("[data-delete]");
     if (edit) startEdit(edit.dataset.edit);
     if (del) {
       const item = links.find(x => x.id === del.dataset.delete); if (!item) return;
       if (confirm(`Удалить «${item.name}»? Это действие нельзя отменить.`)) {
-        links = links.filter(x => x.id !== item.id); saveLinks(); showToast("Ссылка удалена.");
+        const previous = links.slice();
+        links = links.filter(x => x.id !== item.id);
+        try { await saveLinks(); showToast("Ссылка удалена для всех посетителей."); }
+        catch (error) {
+          links = previous; renderLinks(); renderAdminLinks();
+          showToast(error.status === 401 ? "Сессия истекла. Войдите снова." : "Не удалось сохранить ссылку на сервере.");
+        }
       }
     }
   });
-  $("#linkForm").addEventListener("submit", e => {
+  $("#linkForm").addEventListener("submit", async e => {
     e.preventDefault();
     const name = $("#linkName").value.trim(), url = safeUrl($("#linkUrl").value.trim()), editId = $("#editId").value;
     if (!name) { showToast("Введите название предмета."); return; }
     if (!url) { showToast("Введите корректный адрес http:// или https://."); return; }
+    const previous = links.slice();
     if (editId) {
       links = links.map(x => x.id === editId ? { ...x, name, url, category: adminCategory } : x);
-      showToast("Ссылка обновлена.");
     } else {
-      links.push({ id: makeId(), category: adminCategory, name, url }); showToast("Ссылка добавлена.");
+      links.push({ id: makeId(), category: adminCategory, name, url });
     }
-    saveLinks(); resetLinkForm();
+    try {
+      await saveLinks();
+      resetLinkForm();
+      showToast(editId ? "Ссылка обновлена для всех посетителей." : "Ссылка добавлена для всех посетителей.");
+    } catch (error) {
+      links = previous; renderLinks(); renderAdminLinks();
+      showToast(error.status === 401 ? "Сессия истекла. Войдите снова." : "Не удалось сохранить ссылку на сервере.");
+    }
   });
   $("#logoutBtn").addEventListener("click", () => {
-    try { localStorage.removeItem(KEYS.admin); } catch {}
-    try {
-      sessionStorage.removeItem(KEYS.admin);
-      sessionStorage.removeItem("studentHub.adminSession.v2");
-    } catch {}
+    try { localStorage.removeItem(KEYS.adminToken); } catch {}
     syncAdminControls();
     closeModal("adminModal"); resetLinkForm(); showToast("Вы вышли из панели администратора.");
   });
@@ -410,13 +390,17 @@
     const loaded = await renderScheduleFile(file, SCHEDULE_KEY);
     if (loaded) {
       try {
-        await saveSchedule(file);
-        $("#scheduleFileStatus").textContent = "Расписание сохранено";
-        showToast("Расписание загружено.");
+        await apiRequest("/api/schedule", {
+          method: "PUT",
+          headers: { "Content-Type": DOCX_MIME },
+          body: file
+        });
+        $("#scheduleFileStatus").textContent = "Опубликовано для всех посетителей";
+        showToast("Расписание опубликовано на сайте.");
       } catch (error) {
         console.error("Не удалось сохранить расписание:", error);
-        $("#scheduleFileStatus").textContent = "Документ открыт, но не сохранён";
-        showToast("Документ открыт, но браузер не смог сохранить его.");
+        $("#scheduleFileStatus").textContent = "Не удалось опубликовать расписание";
+        showToast(error.status === 401 ? "Сессия истекла. Войдите снова." : "Документ открыт, но не опубликован на сайте.");
       }
     } else showToast("Не удалось открыть файл расписания.");
     e.target.value = "";
@@ -425,6 +409,7 @@
   try { setTheme(localStorage.getItem(KEYS.theme) || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")); }
   catch { setTheme("dark"); }
   syncAdminControls();
+  validateSavedAdminSession();
   updateDeviceClass();
   window.addEventListener("resize", () => {
     updateDeviceClass();
@@ -438,5 +423,6 @@
   window.setInterval(updateCurrentDate, 60 * 1000);
   renderLinks();
   setView("schedule");
+  loadSharedLinks();
   loadDefaultSchedule();
 })();

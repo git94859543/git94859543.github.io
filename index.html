@@ -71,7 +71,7 @@
       <button class="modal-close" data-close="authModal" aria-label="Закрыть">×</button>
       <div class="modal-symbol">⌑</div><div class="section-kicker">ЗАКРЫТЫЙ РАЗДЕЛ</div><h2 id="authTitle">Доступ администратора</h2><p>Введите 9-символьный буквенно-цифровой код для управления ссылками и расписанием.</p>
       <form id="authForm"><label for="passcode">Код доступа</label><input id="passcode" name="passcode" type="password" minlength="9" maxlength="9" pattern="[A-Za-z0-9]{9}" autocomplete="current-password" placeholder="Код из 9 символов" required><div class="field-hint">Ровно 9 букв или цифр. Учитывайте регистр.</div><p class="form-error" id="authError" role="alert"></p><button class="button button-primary full-button" type="submit">Открыть панель администратора</button></form>
-      <div class="security-note">Демонстрационный режим: перед использованием с личными данными настройте серверную авторизацию.</div>
+      <div class="security-note">Код проверяется сервером и не хранится в исходном коде сайта.</div>
     </section>
   </div>
 
@@ -89,13 +89,14 @@
         <p class="field-hint">Разрешены только ссылки http:// и https://.</p>
         <button class="button button-primary full-button" type="submit" id="saveLinkBtn">Сохранить ссылку</button>
       </form>
-      <div class="admin-bottom"><span><span class="status-dot"></span> Изменения сохраняются в этом браузере</span><button class="text-button logout-button" id="logoutBtn">Выйти →</button></div>
+      <div class="admin-bottom"><span><span class="status-dot"></span> Изменения публикуются для всех посетителей</span><button class="text-button logout-button" id="logoutBtn">Выйти →</button></div>
     </section>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.min.js"></script>
+  <script src="backend-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
