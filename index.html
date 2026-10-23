@@ -33,19 +33,13 @@
       <header class="topbar">
         <div class="breadcrumb"><span>Разделы</span><span class="crumb-slash">/</span><strong id="crumbCurrent">Расписание</strong></div>
         <div class="top-actions">
-          <span class="today-chip"><span class="status-dot"></span> Учебное пространство</span>
+          <div class="date-card glass"><span class="date-icon"><img src="assets/today.svg" alt=""></span><div><small>СЕГОДНЯ</small><strong id="currentDate"></strong></div></div>
           <button class="icon-button theme-toggle" id="themeToggle" aria-label="Переключить цветовую тему" title="Переключить тему"><span class="theme-mark" id="themeIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M12 3a9 9 0 0 1 0 18V3Z" fill="currentColor"></path></svg></span></button>
           <button class="avatar-button" id="topAdmin" aria-label="Открыть панель администратора">S</button>
         </div>
       </header>
 
-      <section class="welcome-row">
-        <div><h1 id="pageTitle">Расписание</h1><p id="pageSubtitle" hidden></p></div>
-        <div class="date-card glass"><span class="date-icon"><img src="assets/today.svg" alt=""></span><div><small>СЕГОДНЯ</small><strong id="currentDate"></strong></div></div>
-      </section>
-
       <section class="view-panel" id="view-schedule">
-        <div class="section-heading"><div><h2>Расписание занятий</h2><p>Всё важное о занятиях — в одном месте.</p></div><span class="section-pill"><span class="status-dot"></span> Расписание</span></div>
         <div class="schedule-toolbar glass">
           <div class="file-info"><span class="file-icon">DOC</span><div><strong id="scheduleFileName">schedule.docx</strong><small id="scheduleFileStatus">Загрузка расписания…</small></div></div>
           <div class="toolbar-actions"><label class="button button-secondary upload-button admin-only" for="docxInput" hidden>↑ Загрузить DOCX</label><input id="docxInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden><span class="toolbar-divider"></span><button class="icon-button small" id="zoomOut" title="Уменьшить" aria-label="Уменьшить">−</button><span id="zoomLevel" class="zoom-level">100%</span><button class="icon-button small" id="zoomIn" title="Увеличить" aria-label="Увеличить">+</button><button class="button button-secondary toolbar-icon-button" id="fitDoc" type="button" title="По ширине" aria-label="По ширине"><img src="assets/fit-width.svg" alt=""></button><button class="button button-secondary toolbar-icon-button" id="scheduleFullscreen" type="button" title="На весь экран" aria-label="Открыть расписание на весь экран" aria-pressed="false"><img id="scheduleFullscreenIcon" src="assets/fullscreen.svg" alt=""></button></div>
@@ -56,19 +50,14 @@
             <div id="docxPreview" class="docx-preview" hidden></div>
           </div>
         </div>
-        <p class="privacy-note"><span>✦</span> Расписание отображается в браузере и не отправляется на сервер.</p>
       </section>
 
       <section class="view-panel" id="view-zoom" hidden>
-        <div class="section-heading"><div><h2>Занятия в Zoom</h2><p>Подключайтесь к виртуальным занятиям в один клик.</p></div><span class="section-pill"><span class="status-dot"></span> Онлайн-занятия</span></div>
-        <div class="summary-strip glass"><span class="summary-icon zoom-summary">◉</span><div><strong id="zoomCount">0 занятий</strong><small>Всё готово к началу</small></div></div>
         <div class="subject-grid" id="zoomList"></div>
         <div class="empty-state glass" id="zoomEmpty" hidden><span>◉</span><h3>Занятий пока нет</h3><p>Ссылки на занятия Zoom появятся здесь, когда их добавит администратор.</p></div>
       </section>
 
       <section class="view-panel" id="view-classroom" hidden>
-        <div class="section-heading"><div><h2>Ваши учебные курсы</h2><p>Предметы, материалы и задания собраны в одном месте.</p></div><span class="section-pill"><span class="status-dot"></span> Учебные ресурсы</span></div>
-        <div class="summary-strip glass"><span class="summary-icon classroom-summary">◧</span><div><strong id="classroomCount">0 курсов</strong><small>Все ваши курсы — рядом</small></div></div>
         <div class="subject-grid" id="classroomList"></div>
         <div class="empty-state glass" id="classroomEmpty" hidden><span>◧</span><h3>Здесь появятся ваши курсы</h3><p>Попросите администратора добавить ссылки на курсы Google Classroom.</p></div>
       </section>
@@ -106,7 +95,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
+  <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

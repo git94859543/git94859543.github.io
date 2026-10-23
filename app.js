@@ -3,9 +3,15 @@
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
   const KEYS = { links: "studentHub.links.v1", theme: "studentHub.theme.v1", admin: "studentHub.adminSession.v3" };
-  // Demo-only code. Never use a client-side passcode as production authentication.
-  // Replace this with a server-side login/session before deploying with private data.
-  const DEMO_PASSCODE = "m4B8vN3tQ";
+  const SCHEDULE_DB = "studentHub.schedule.v1";
+  const SCHEDULE_STORE = "documents";
+  const SCHEDULE_KEY = "schedule.docx";
+  const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  // Client-side verification only hides the passcode text; it is not secure authentication.
+  // Use a server-side login/session before deploying with private data.
+  const PASSCODE_SALT_HEX = "9b8d26f788c4913ab8ee655591933106";
+  const PASSCODE_HASH_HEX = "cdbc64734d2fc3e0dcdf7678655bbd736f3bdeafc5acd44937a09ea0e77569f7";
+  const PASSCODE_ITERATIONS = 310000;
   const defaults = [
     { id: makeId(), category: "zoom", name: "Математика", url: "https://zoom.us/" },
     { id: makeId(), category: "zoom", name: "Английский язык", url: "https://zoom.us/" },
@@ -38,6 +44,27 @@
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   }
+  async function verifyPasscode(value) {
+    if (!globalThis.crypto?.subtle) throw new Error("Web Crypto is unavailable");
+    const salt = Uint8Array.from(PASSCODE_SALT_HEX.match(/.{2}/g), byte => Number.parseInt(byte, 16));
+    const key = await globalThis.crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(value),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const bits = await globalThis.crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, iterations: PASSCODE_ITERATIONS, hash: "SHA-256" },
+      key,
+      256
+    );
+    const candidate = [...new Uint8Array(bits)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+    if (candidate.length !== PASSCODE_HASH_HEX.length) return false;
+    let difference = 0;
+    for (let i = 0; i < candidate.length; i++) difference |= candidate.charCodeAt(i) ^ PASSCODE_HASH_HEX.charCodeAt(i);
+    return difference === 0;
+  }
   function showToast(message) {
     const toast = $("#toast"); toast.textContent = message; toast.classList.add("show");
     clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
@@ -49,23 +76,8 @@
     ["schedule", "zoom", "classroom"].forEach(v => $("#view-" + v).hidden = v !== view);
     const names = { schedule: "Расписание", zoom: "Занятия Zoom", classroom: "Google Classroom" };
     $("#crumbCurrent").textContent = names[view];
-    const titles = {
-      schedule: ["Ваш учебный дашборд", ""],
-      zoom: ["Занятия в Zoom", "Подключайтесь к виртуальным занятиям в один клик."],
-      classroom: ["Ваши учебные курсы", "Предметы, материалы и задания собраны в одном месте."]
-    };
-    $("#pageTitle").textContent = titles[view][0];
-    $("#pageSubtitle").textContent = titles[view][1];
-    $("#pageSubtitle").hidden = !titles[view][1];
   }
-  function pluralize(count, forms) {
-    const mod10 = count % 10, mod100 = count % 100;
-    if (mod100 >= 11 && mod100 <= 14) return forms[2];
-    if (mod10 === 1) return forms[0];
-    if (mod10 >= 2 && mod10 <= 4) return forms[1];
-    return forms[2];
-  }
-  function renderCategory(category, listId, emptyId, countId) {
+  function renderCategory(category, listId, emptyId) {
     const items = links.filter(x => x.category === category);
     const list = $("#" + listId); list.innerHTML = "";
     items.forEach((item, index) => {
@@ -86,12 +98,10 @@
       list.appendChild(card);
     });
     $("#" + emptyId).hidden = items.length !== 0;
-    const forms = category === "zoom" ? ["занятие", "занятия", "занятий"] : ["курс", "курса", "курсов"];
-    $("#" + countId).textContent = `${items.length} ${pluralize(items.length, forms)}`;
   }
   function renderLinks() {
-    renderCategory("zoom", "zoomList", "zoomEmpty", "zoomCount");
-    renderCategory("classroom", "classroomList", "classroomEmpty", "classroomCount");
+    renderCategory("zoom", "zoomList", "zoomEmpty");
+    renderCategory("classroom", "classroomList", "classroomEmpty");
     $("#adminZoomCount").textContent = links.filter(x => x.category === "zoom").length;
     $("#adminClassroomCount").textContent = links.filter(x => x.category === "classroom").length;
   }
@@ -208,7 +218,19 @@
     $("#emptyDocument").hidden = true; $("#docxPreview").hidden = false; $("#docxPreview").innerHTML = "";
     try {
       if (!window.JSZip || !window.docx || typeof window.docx.renderAsync !== "function") throw new Error("renderer");
-      await window.docx.renderAsync(file, $("#docxPreview"), null, { inWrapper: false, ignoreWidth: false, ignoreHeight: false, breakPages: true });
+      await window.docx.renderAsync(file, $("#docxPreview"), null, {
+        inWrapper: false,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        breakPages: true,
+        ignoreLastRenderedPageBreak: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+        renderEndnotes: true,
+        renderAltChunks: true
+      });
       $("#scheduleFileStatus").textContent = "Расписание открыто · обработка в браузере";
       docZoom = 1; fitToWidth = false; updateZoom();
       return true;
@@ -221,19 +243,69 @@
       return false;
     }
   }
+  function openScheduleDatabase() {
+    return new Promise((resolve, reject) => {
+      if (!("indexedDB" in window)) {
+        reject(new Error("IndexedDB недоступен"));
+        return;
+      }
+      const request = indexedDB.open(SCHEDULE_DB, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(SCHEDULE_STORE)) {
+          request.result.createObjectStore(SCHEDULE_STORE);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("Не удалось открыть хранилище расписания"));
+      request.onblocked = () => reject(new Error("Хранилище расписания заблокировано"));
+    });
+  }
+  async function readSavedSchedule() {
+    const db = await openScheduleDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(SCHEDULE_STORE, "readonly");
+      const request = transaction.objectStore(SCHEDULE_STORE).get(SCHEDULE_KEY);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error("Не удалось прочитать расписание"));
+      transaction.oncomplete = () => db.close();
+      transaction.onerror = () => { db.close(); reject(transaction.error || new Error("Не удалось прочитать расписание")); };
+    });
+  }
+  async function saveSchedule(file) {
+    const db = await openScheduleDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(SCHEDULE_STORE, "readwrite");
+      transaction.objectStore(SCHEDULE_STORE).put(file.slice(0, file.size, DOCX_MIME), SCHEDULE_KEY);
+      transaction.oncomplete = () => { db.close(); resolve(); };
+      transaction.onerror = () => { db.close(); reject(transaction.error || new Error("Не удалось сохранить расписание")); };
+      transaction.onabort = () => { db.close(); reject(transaction.error || new Error("Не удалось сохранить расписание")); };
+    });
+  }
   async function loadDefaultSchedule() {
-    $("#scheduleFileName").textContent = "schedule.docx";
+    $("#scheduleFileName").textContent = SCHEDULE_KEY;
+    try {
+      const saved = await readSavedSchedule();
+      if (saved) {
+        const loaded = await renderScheduleFile(saved, SCHEDULE_KEY);
+        if (loaded) {
+          $("#scheduleFileStatus").textContent = "Расписание открыто";
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn("Не удалось прочитать сохранённое расписание:", error);
+    }
     if (!["http:", "https:"].includes(location.protocol)) {
-      $("#scheduleFileStatus").textContent = "Откройте приложение через веб-сервер";
-      $("#scheduleErrorMessage").textContent = "Для автоматической загрузки schedule.docx откройте приложение через локальный веб-сервер.";
+      $("#scheduleFileStatus").textContent = "";
+      $("#scheduleErrorMessage").textContent = "Не удалось загрузить schedule.docx. Проверьте файл и обновите страницу.";
       $("#emptyDocument").hidden = false;
       return;
     }
     try {
-      const response = await fetch(new URL("schedule.docx", document.baseURI), { cache: "no-cache" });
+      const response = await fetch(new URL(SCHEDULE_KEY, document.baseURI), { cache: "no-cache" });
       if (!response.ok) throw new Error("missing schedule");
-      const loaded = await renderScheduleFile(await response.blob(), "schedule.docx");
-      if (!loaded) $("#scheduleErrorMessage").textContent = "Не удалось отобразить schedule.docx. Проверьте файл и обновите страницу.";
+      const loaded = await renderScheduleFile(await response.blob(), SCHEDULE_KEY);
+      if (!loaded) $("#scheduleErrorMessage").textContent = `Не удалось отобразить ${SCHEDULE_KEY}. Проверьте файл и обновите страницу.`;
     } catch {
       $("#scheduleFileStatus").textContent = "Не удалось загрузить schedule.docx";
       $("#scheduleErrorMessage").textContent = "Убедитесь, что schedule.docx находится рядом с приложением, затем обновите страницу.";
@@ -265,10 +337,20 @@
       }
     }
   });
-  $("#authForm").addEventListener("submit", e => {
+  $("#authForm").addEventListener("submit", async e => {
     e.preventDefault(); const code = $("#passcode").value;
     if (!/^[A-Za-z0-9]{9}$/.test(code)) { $("#authError").textContent = "Введите ровно 9 букв или цифр."; return; }
-    if (code !== DEMO_PASSCODE) { $("#authError").textContent = "Неверный код. Проверьте регистр букв и попробуйте ещё раз."; $("#passcode").select(); return; }
+    const submitButton = $("#authForm").querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    try {
+      if (!await verifyPasscode(code)) { $("#authError").textContent = "Неверный код. Проверьте регистр букв и попробуйте ещё раз."; $("#passcode").select(); return; }
+    } catch (error) {
+      console.error("Не удалось проверить код доступа:", error);
+      $("#authError").textContent = "Не удалось проверить код. Обновите страницу и попробуйте ещё раз.";
+      return;
+    } finally {
+      submitButton.disabled = false;
+    }
     try { localStorage.setItem(KEYS.admin, "true"); }
     catch { try { sessionStorage.setItem(KEYS.admin, "true"); } catch {} }
     syncAdminControls();
@@ -325,9 +407,18 @@
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!isAdmin()) { e.target.value = ""; return; }
     if (!file.name.toLowerCase().endsWith(".docx")) { showToast("Выберите файл в формате .docx."); e.target.value = ""; return; }
-    const loaded = await renderScheduleFile(file, file.name);
-    if (loaded) showToast("Расписание загружено.");
-    else showToast("Не удалось открыть файл расписания.");
+    const loaded = await renderScheduleFile(file, SCHEDULE_KEY);
+    if (loaded) {
+      try {
+        await saveSchedule(file);
+        $("#scheduleFileStatus").textContent = "Расписание сохранено";
+        showToast("Расписание загружено.");
+      } catch (error) {
+        console.error("Не удалось сохранить расписание:", error);
+        $("#scheduleFileStatus").textContent = "Документ открыт, но не сохранён";
+        showToast("Документ открыт, но браузер не смог сохранить его.");
+      }
+    } else showToast("Не удалось открыть файл расписания.");
     e.target.value = "";
   });
 
