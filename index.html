@@ -24,7 +24,7 @@
         <button class="nav-item" data-view="classroom"><span class="nav-icon">◧</span><span>Google Classroom</span></button>
       </nav>
       <div class="sidebar-bottom">
-        <button class="nav-item admin-nav" id="adminOpen"><span class="nav-icon">⚙</span><span>Панель администратора</span><span class="lock-icon">⌑</span></button>
+        <button class="nav-item admin-nav" id="adminOpen"><span class="nav-icon"><img src="assets/admin.svg" alt=""></span><span>Панель администратора</span><span class="lock-icon">⌑</span></button>
         <div class="sidebar-footer"><span>STUDENT HUB</span></div>
       </div>
     </aside>
@@ -34,14 +34,14 @@
         <div class="breadcrumb"><span>Разделы</span><span class="crumb-slash">/</span><strong id="crumbCurrent">Расписание</strong></div>
         <div class="top-actions">
           <span class="today-chip"><span class="status-dot"></span> Учебное пространство</span>
-          <button class="icon-button theme-toggle" id="themeToggle" aria-label="Переключить цветовую тему" title="Переключить тему"><span id="themeIcon">◒</span></button>
+          <button class="icon-button theme-toggle" id="themeToggle" aria-label="Переключить цветовую тему" title="Переключить тему"><span class="theme-mark" id="themeIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M12 3a9 9 0 0 1 0 18V3Z" fill="currentColor"></path></svg></span></button>
           <button class="avatar-button" id="topAdmin" aria-label="Открыть панель администратора">S</button>
         </div>
       </header>
 
       <section class="welcome-row">
         <div><h1 id="pageTitle">Расписание</h1><p id="pageSubtitle" hidden></p></div>
-        <div class="date-card glass"><span class="date-icon">✳</span><div><small>СЕГОДНЯ</small><strong id="currentDate"></strong></div></div>
+        <div class="date-card glass"><span class="date-icon"><img src="assets/today.svg" alt=""></span><div><small>СЕГОДНЯ</small><strong id="currentDate"></strong></div></div>
       </section>
 
       <section class="view-panel" id="view-schedule">
@@ -105,6 +105,7 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
   <script src="app.js"></script>
 </body>

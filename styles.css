@@ -22,3 +22,4 @@ html[data-device="phone"] .toolbar-actions{width:100%;min-width:0;flex-wrap:wrap
 html[data-device="phone"] .docx-preview{min-width:0;max-width:100%;overflow-wrap:anywhere}
 @media(min-width:760px) and (max-width:1024px){html[data-device="tablet"] .subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){html[data-device="phone"] .welcome-row{flex-direction:column;gap:12px}html[data-device="phone"] .date-card{align-self:flex-end}html[data-device="phone"] .section-heading{flex-wrap:wrap}html[data-device="phone"] .section-pill{margin-left:auto}}
+.nav-icon img{display:block;width:17px;height:17px;object-fit:contain}.date-icon img{display:block;width:23px;height:23px;object-fit:contain}.theme-mark{display:grid;place-items:center;width:20px;height:20px;color:var(--accent);line-height:0}.theme-mark svg{display:block;width:19px;height:19px}

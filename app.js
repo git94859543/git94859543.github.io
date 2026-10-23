@@ -2,7 +2,7 @@
   "use strict";
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
-  const KEYS = { links: "studentHub.links.v1", theme: "studentHub.theme.v1", admin: "studentHub.adminSession.v2" };
+  const KEYS = { links: "studentHub.links.v1", theme: "studentHub.theme.v1", admin: "studentHub.adminSession.v3" };
   // Demo-only code. Never use a client-side passcode as production authentication.
   // Replace this with a server-side login/session before deploying with private data.
   const DEMO_PASSCODE = "m4B8vN3tQ";
@@ -97,7 +97,6 @@
   function setTheme(theme) {
     const next = theme === "light" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
-    $("#themeIcon").textContent = next === "dark" ? "◒" : "☀";
     $("#themeToggle").setAttribute("aria-label", next === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему");
     try { localStorage.setItem(KEYS.theme, next); } catch {}
   }
@@ -106,7 +105,18 @@
     $("#" + id).hidden = true;
     if ($("#authModal").hidden && $("#adminModal").hidden) document.body.style.overflow = "";
   }
-  function isAdmin() { try { return sessionStorage.getItem(KEYS.admin) === "true"; } catch { return false; } }
+  function isAdmin() {
+    try {
+      if (localStorage.getItem(KEYS.admin) === "true") return true;
+      // Preserve an already-unlocked session once when upgrading from the previous version.
+      if (sessionStorage.getItem("studentHub.adminSession.v2") === "true") {
+        localStorage.setItem(KEYS.admin, "true");
+        sessionStorage.removeItem("studentHub.adminSession.v2");
+        return true;
+      }
+    } catch {}
+    try { return sessionStorage.getItem(KEYS.admin) === "true"; } catch { return false; }
+  }
   function syncAdminControls() { $$(".admin-only").forEach(control => { control.hidden = !isAdmin(); }); }
   function requestAdmin() {
     if (isAdmin()) { openModal("adminModal"); renderAdminLinks(); }
@@ -144,7 +154,7 @@
     $("#scheduleFileStatus").textContent = "Чтение документа…";
     $("#emptyDocument").hidden = true; $("#docxPreview").hidden = false; $("#docxPreview").innerHTML = "";
     try {
-      if (!window.docx || typeof window.docx.renderAsync !== "function") throw new Error("renderer");
+      if (!window.JSZip || !window.docx || typeof window.docx.renderAsync !== "function") throw new Error("renderer");
       await window.docx.renderAsync(file, $("#docxPreview"), null, { inWrapper: false, ignoreWidth: false, ignoreHeight: false, breakPages: true });
       $("#scheduleFileStatus").textContent = "Расписание открыто · обработка в браузере";
       docZoom = 1; updateZoom();
@@ -152,7 +162,9 @@
     } catch {
       $("#docxPreview").hidden = true; $("#emptyDocument").hidden = false;
       $("#scheduleFileStatus").textContent = "Не удалось открыть расписание";
-      $("#scheduleErrorMessage").textContent = "Проверьте файл и подключение к интернету, затем попробуйте ещё раз.";
+      $("#scheduleErrorMessage").textContent = !window.JSZip || !window.docx
+        ? "Не загрузились компоненты для чтения DOCX. Проверьте подключение к интернету и обновите страницу."
+        : "Не удалось отобразить DOCX. Проверьте файл и попробуйте ещё раз.";
       return false;
     }
   }
@@ -195,7 +207,8 @@
     e.preventDefault(); const code = $("#passcode").value;
     if (!/^[A-Za-z0-9]{9}$/.test(code)) { $("#authError").textContent = "Введите ровно 9 букв или цифр."; return; }
     if (code !== DEMO_PASSCODE) { $("#authError").textContent = "Неверный код. Проверьте регистр букв и попробуйте ещё раз."; $("#passcode").select(); return; }
-    try { sessionStorage.setItem(KEYS.admin, "true"); } catch {}
+    try { localStorage.setItem(KEYS.admin, "true"); }
+    catch { try { sessionStorage.setItem(KEYS.admin, "true"); } catch {} }
     syncAdminControls();
     closeModal("authModal"); openModal("adminModal"); renderAdminLinks(); showToast("Доступ администратора открыт.");
   });
@@ -232,7 +245,11 @@
     saveLinks(); resetLinkForm();
   });
   $("#logoutBtn").addEventListener("click", () => {
-    try { sessionStorage.removeItem(KEYS.admin); } catch {}
+    try { localStorage.removeItem(KEYS.admin); } catch {}
+    try {
+      sessionStorage.removeItem(KEYS.admin);
+      sessionStorage.removeItem("studentHub.adminSession.v2");
+    } catch {}
     syncAdminControls();
     closeModal("adminModal"); resetLinkForm(); showToast("Вы вышли из панели администратора.");
   });
