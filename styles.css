@@ -60,3 +60,30 @@ body.schedule-fullscreen-lock{overflow:hidden}
   #view-schedule:fullscreen .document-canvas,
   #view-schedule.schedule-fullscreen-fallback .document-canvas{height:68vh;min-height:240px}
 }
+
+.toolbar-icon-button{width:36px;height:36px;flex:0 0 36px;padding:0;border-radius:10px}
+.toolbar-icon-button img{display:block;width:20px;height:20px}
+.toolbar-icon-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:620px){
+  #view-schedule .document-card{min-height:0;overflow:visible}
+  #view-schedule .document-canvas{
+    display:block;
+    width:100%;
+    min-height:0;
+    max-height:none;
+    height:auto;
+    padding:10px 0;
+    overflow:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  #view-schedule #docxPreview{
+    width:max-content;
+    min-width:0;
+    max-width:none;
+    margin:0;
+    padding:12px;
+    transform-origin:top left;
+  }
+  #view-schedule #docxPreview .docx{max-width:none;background-color:#fff}
+}

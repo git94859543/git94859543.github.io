@@ -18,6 +18,7 @@
   let currentView = "schedule";
   let adminCategory = "zoom";
   let docZoom = 1;
+  let fitToWidth = false;
   let toastTimer;
 
   function makeId() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
@@ -149,11 +150,33 @@
     $("#zoomLevel").textContent = `${Math.round(docZoom * 100)}%`;
     $("#docxPreview").style.zoom = String(docZoom);
   }
+  function fitDocumentToWidth() {
+    const canvas = $("#documentCanvas");
+    const preview = $("#docxPreview");
+    const zoomFactor = docZoom || 1;
+    const page = preview.querySelector(".docx");
+    const previewStyle = getComputedStyle(preview);
+    const previewPadding = parseFloat(previewStyle.paddingLeft) + parseFloat(previewStyle.paddingRight);
+    const pageWidth = page ? page.getBoundingClientRect().width / zoomFactor : 0;
+    const contentWidth = Math.max(preview.getBoundingClientRect().width / zoomFactor, pageWidth + previewPadding);
+    const styles = getComputedStyle(canvas);
+    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+    const availableWidth = canvas.clientWidth - horizontalPadding;
+    if (contentWidth > 0 && availableWidth > 0) {
+      docZoom = Math.max(.3, Math.min(1, +(availableWidth / contentWidth).toFixed(3)));
+    } else {
+      docZoom = 1;
+    }
+    updateZoom();
+    canvas.scrollLeft = 0;
+    canvas.scrollTop = 0;
+  }
   function syncScheduleFullscreenButton() {
     const schedule = $("#view-schedule");
     const active = document.fullscreenElement === schedule || schedule.classList.contains("schedule-fullscreen-fallback");
     const button = $("#scheduleFullscreen");
-    button.textContent = active ? "Свернуть" : "На весь экран";
+    $("#scheduleFullscreenIcon").src = active ? "assets/fullscreen-exit.svg" : "assets/fullscreen.svg";
+    button.title = active ? "Свернуть расписание" : "На весь экран";
     button.setAttribute("aria-pressed", String(active));
     button.setAttribute("aria-label", active ? "Выйти из полноэкранного режима расписания" : "Открыть расписание на весь экран");
   }
@@ -187,7 +210,7 @@
       if (!window.JSZip || !window.docx || typeof window.docx.renderAsync !== "function") throw new Error("renderer");
       await window.docx.renderAsync(file, $("#docxPreview"), null, { inWrapper: false, ignoreWidth: false, ignoreHeight: false, breakPages: true });
       $("#scheduleFileStatus").textContent = "Расписание открыто · обработка в браузере";
-      docZoom = 1; updateZoom();
+      docZoom = 1; fitToWidth = false; updateZoom();
       return true;
     } catch {
       $("#docxPreview").hidden = true; $("#emptyDocument").hidden = false;
@@ -293,9 +316,9 @@
     closeModal("adminModal"); resetLinkForm(); showToast("Вы вышли из панели администратора.");
   });
 
-  $("#zoomIn").addEventListener("click", () => { docZoom = Math.min(2, +(docZoom + .1).toFixed(2)); updateZoom(); });
-  $("#zoomOut").addEventListener("click", () => { docZoom = Math.max(.5, +(docZoom - .1).toFixed(2)); updateZoom(); });
-  $("#fitDoc").addEventListener("click", () => { docZoom = 1; updateZoom(); $("#documentCanvas").scrollTop = 0; });
+  $("#zoomIn").addEventListener("click", () => { fitToWidth = false; docZoom = Math.min(2, +(docZoom + .1).toFixed(2)); updateZoom(); });
+  $("#zoomOut").addEventListener("click", () => { fitToWidth = false; docZoom = Math.max(.5, +(docZoom - .1).toFixed(2)); updateZoom(); });
+  $("#fitDoc").addEventListener("click", () => { fitToWidth = true; fitDocumentToWidth(); });
   $("#scheduleFullscreen").addEventListener("click", toggleScheduleFullscreen);
   document.addEventListener("fullscreenchange", syncScheduleFullscreenButton);
   $("#docxInput").addEventListener("change", async e => {
@@ -312,8 +335,14 @@
   catch { setTheme("dark"); }
   syncAdminControls();
   updateDeviceClass();
-  window.addEventListener("resize", updateDeviceClass, { passive: true });
-  window.addEventListener("orientationchange", updateDeviceClass, { passive: true });
+  window.addEventListener("resize", () => {
+    updateDeviceClass();
+    if (fitToWidth) fitDocumentToWidth();
+  }, { passive: true });
+  window.addEventListener("orientationchange", () => {
+    updateDeviceClass();
+    if (fitToWidth) fitDocumentToWidth();
+  }, { passive: true });
   updateCurrentDate();
   window.setInterval(updateCurrentDate, 60 * 1000);
   renderLinks();
