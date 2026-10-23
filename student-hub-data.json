@@ -1,0 +1,40 @@
+{
+  "links": [
+    {
+      "id": "93libsyfcyyn",
+      "category": "zoom",
+      "name": "Ьфеееппппппп",
+      "url": "https://zoom.us/"
+    },
+    {
+      "id": "961pi4iscyyn",
+      "category": "zoom",
+      "name": "Английский язык",
+      "url": "https://zoom.us/"
+    },
+    {
+      "id": "llj7m653cyyo",
+      "category": "zoom",
+      "name": "Информатика",
+      "url": "https://zoom.us/"
+    },
+    {
+      "id": "q824iyoxcyyo",
+      "category": "classroom",
+      "name": "Математика",
+      "url": "https://classroom.google.com/"
+    },
+    {
+      "id": "qj5w891ncyyo",
+      "category": "classroom",
+      "name": "Английский язык",
+      "url": "https://classroom.google.com/"
+    },
+    {
+      "id": "ny9ert99cyyo",
+      "category": "classroom",
+      "name": "Информатика",
+      "url": "https://classroom.google.com/"
+    }
+  ]
+}
