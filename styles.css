@@ -30,37 +30,6 @@ html[data-device="phone"] .docx-preview{min-width:0;max-width:none;overflow-wrap
 #docxPreview .docx-wrapper{color-scheme:only light}
 #docxPreview .docx{background-color:#fff}
 
-/* Native fullscreen is preferred; the class-based mode covers browsers without the API. */
-#view-schedule:fullscreen,
-#view-schedule.schedule-fullscreen-fallback{
-  position:fixed;
-  inset:0;
-  z-index:1000;
-  box-sizing:border-box;
-  width:100%;
-  height:100vh;
-  height:100dvh;
-  min-height:0;
-  padding:clamp(14px,3vw,36px);
-  overflow:auto;
-  background:var(--bg);
-  color:var(--text);
-  animation:none;
-}
-body.schedule-fullscreen-lock{overflow:hidden}
-#view-schedule:fullscreen .document-canvas,
-#view-schedule.schedule-fullscreen-fallback .document-canvas{
-  height:min(74vh,1000px);
-  min-height:300px;
-  max-height:none;
-}
-@media(max-width:620px){
-  #view-schedule:fullscreen,
-  #view-schedule.schedule-fullscreen-fallback{padding:12px}
-  #view-schedule:fullscreen .document-canvas,
-  #view-schedule.schedule-fullscreen-fallback .document-canvas{height:68vh;min-height:240px}
-}
-
 /* Keep the date badge compact in the top navigation. */
 .top-actions .date-card{min-width:0;padding:6px 10px;gap:8px;border-radius:13px}
 .top-actions .date-card .date-icon{width:29px;height:29px}
@@ -102,4 +71,88 @@ body.schedule-fullscreen-lock{overflow:hidden}
     transform-origin:top left;
   }
   #view-schedule #docxPreview .docx{max-width:none;background-color:#fff}
+}
+
+/* Fullscreen document overlay */
+.fullscreen-overlay{
+  position:fixed;
+  inset:0;
+  z-index:2000;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  overflow:auto;
+}
+.fullscreen-close{
+  position:fixed;
+  top:20px;
+  right:20px;
+  z-index:2001;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  border:1px solid var(--line);
+  background:var(--glass-strong);
+  backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  transition:transform .2s,border-color .2s,background .2s;
+  box-shadow:var(--shadow);
+}
+.fullscreen-close:hover{
+  transform:scale(1.05);
+  border-color:var(--accent);
+  background:var(--glass);
+}
+.fullscreen-close:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:3px;
+}
+.fullscreen-close img{
+  width:24px;
+  height:24px;
+  display:block;
+}
+.fullscreen-document{
+  flex:1;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding:80px 24px 40px;
+  overflow:auto;
+  min-height:0;
+}
+.fullscreen-document .docx-preview{
+  background:#fff;
+  color:#222;
+  width:max-content;
+  min-width:0;
+  max-width:none;
+  margin:0 auto;
+  transform-origin:top left;
+  box-shadow:0 0 60px rgba(0,0,0,.15);
+  border-radius:8px;
+}
+.fullscreen-document .docx-preview .docx{
+  background:#fff;
+  max-width:none;
+}
+
+@media(max-width:620px){
+  .fullscreen-close{
+    top:12px;
+    right:12px;
+    width:40px;
+    height:40px;
+  }
+  .fullscreen-close img{
+    width:20px;
+    height:20px;
+  }
+  .fullscreen-document{
+    padding:70px 12px 24px;
+  }
 }

@@ -190,39 +190,49 @@
     canvas.scrollTop = 0;
   }
   function syncScheduleFullscreenButton() {
-    const schedule = $("#view-schedule");
-    const active = document.fullscreenElement === schedule || schedule.classList.contains("schedule-fullscreen-fallback");
+    const overlay = $("#scheduleFullscreenOverlay");
+    const active = !overlay.hidden;
     const button = $("#scheduleFullscreen");
     $("#scheduleFullscreenIcon").src = active ? "assets/fullscreen-exit.svg" : "assets/fullscreen.svg";
     button.title = active ? "Свернуть расписание" : "На весь экран";
     button.setAttribute("aria-pressed", String(active));
     button.setAttribute("aria-label", active ? "Выйти из полноэкранного режима расписания" : "Открыть расписание на весь экран");
   }
-  async function toggleScheduleFullscreen() {
-    const schedule = $("#view-schedule");
-    if (schedule.classList.contains("schedule-fullscreen-fallback")) {
-      schedule.classList.remove("schedule-fullscreen-fallback");
-      document.body.classList.remove("schedule-fullscreen-lock");
-      syncScheduleFullscreenButton();
-      return;
-    }
-    if (document.fullscreenElement === schedule) {
-      try { await document.exitFullscreen(); } catch {}
-      return;
-    }
-    if (typeof schedule.requestFullscreen === "function") {
-      try {
-        await schedule.requestFullscreen();
-        return;
-      } catch {}
-    }
-    schedule.classList.add("schedule-fullscreen-fallback");
-    document.body.classList.add("schedule-fullscreen-lock");
+  function openScheduleFullscreen() {
+    const overlay = $("#scheduleFullscreenOverlay");
+    const preview = $("#docxPreview");
+    const docContent = preview.innerHTML;
+    const fullscreenDoc = $("#fullscreenDocument");
+
+    // Clone the document content to the fullscreen overlay
+    fullscreenDoc.innerHTML = docContent;
+
+    // Show the overlay
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    // Focus the close button for accessibility
+    setTimeout(() => $("#scheduleFullscreenClose").focus(), 50);
+
     syncScheduleFullscreenButton();
+  }
+  function closeScheduleFullscreen() {
+    const overlay = $("#scheduleFullscreenOverlay");
+    overlay.hidden = true;
+    document.body.style.overflow = "";
+    $("#fullscreenDocument").innerHTML = "";
+    syncScheduleFullscreenButton();
+  }
+  function toggleScheduleFullscreen() {
+    const overlay = $("#scheduleFullscreenOverlay");
+    if (overlay.hidden) {
+      openScheduleFullscreen();
+    } else {
+      closeScheduleFullscreen();
+    }
   }
   async function renderScheduleFile(file, fileName) {
     $("#scheduleFileName").textContent = fileName;
-    $("#scheduleFileStatus").textContent = "Чтение документа…";
     $("#emptyDocument").hidden = true; $("#docxPreview").hidden = false; $("#docxPreview").innerHTML = "";
     try {
       if (!window.JSZip || !window.docx || typeof window.docx.renderAsync !== "function") throw new Error("renderer");
@@ -239,12 +249,10 @@
         renderEndnotes: true,
         renderAltChunks: true
       });
-      $("#scheduleFileStatus").textContent = "Расписание открыто · обработка в браузере";
       docZoom = 1; fitToWidth = false; updateZoom();
       return true;
     } catch {
       $("#docxPreview").hidden = true; $("#emptyDocument").hidden = false;
-      $("#scheduleFileStatus").textContent = "Не удалось открыть расписание";
       $("#scheduleErrorMessage").textContent = !window.JSZip || !window.docx
         ? "Не загрузились компоненты для чтения DOCX. Проверьте подключение к интернету и обновите страницу."
         : "Не удалось отобразить DOCX. Проверьте файл и попробуйте ещё раз.";
@@ -254,7 +262,6 @@
   async function loadDefaultSchedule() {
     $("#scheduleFileName").textContent = SCHEDULE_KEY;
     if (!["http:", "https:"].includes(location.protocol)) {
-      $("#scheduleFileStatus").textContent = "";
       $("#scheduleErrorMessage").textContent = "Не удалось загрузить schedule.docx. Проверьте файл и обновите страницу.";
       $("#emptyDocument").hidden = false;
       return;
@@ -265,12 +272,10 @@
         : await fetch(new URL(SCHEDULE_KEY, document.baseURI), { cache: "no-cache" });
       if (!response.ok) throw new Error("missing schedule");
       const loaded = await renderScheduleFile(await response.blob(), SCHEDULE_KEY);
-      if (loaded && API_BASE) $("#scheduleFileStatus").textContent = "Общее расписание сайта";
       if (!loaded) $("#scheduleErrorMessage").textContent = `Не удалось отобразить ${SCHEDULE_KEY}. Проверьте файл и обновите страницу.`;
     } catch {
-      $("#scheduleFileStatus").textContent = "Не удалось загрузить schedule.docx";
       $("#scheduleErrorMessage").textContent = API_BASE
-        ? "Не удалось получить общее расписание. Проверьте серверное API и обновите страницу."
+        ? "Не удалось получить расписание. Проверьте серверное API и обновите страницу."
         : "Убедитесь, что schedule.docx находится рядом с приложением, затем обновите страницу.";
       $("#emptyDocument").hidden = false;
     }
@@ -290,13 +295,16 @@
   $("#adminOpen").addEventListener("click", requestAdmin); $("#topAdmin").addEventListener("click", requestAdmin);
   $$("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
   $$(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", e => { if (e.target === backdrop) closeModal(backdrop.id); }));
+
+  // Fullscreen overlay close button
+  $("#scheduleFullscreenClose").addEventListener("click", closeScheduleFullscreen);
+  $("#scheduleFullscreenOverlay").addEventListener("click", e => { if (e.target === $("#scheduleFullscreenOverlay")) closeScheduleFullscreen(); });
+
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       closeModal("authModal"); closeModal("adminModal");
-      if ($("#view-schedule").classList.contains("schedule-fullscreen-fallback")) {
-        $("#view-schedule").classList.remove("schedule-fullscreen-fallback");
-        document.body.classList.remove("schedule-fullscreen-lock");
-        syncScheduleFullscreenButton();
+      if (!$("#scheduleFullscreenOverlay").hidden) {
+        closeScheduleFullscreen();
       }
     }
   });
@@ -382,7 +390,6 @@
   $("#zoomOut").addEventListener("click", () => { fitToWidth = false; docZoom = Math.max(.5, +(docZoom - .1).toFixed(2)); updateZoom(); });
   $("#fitDoc").addEventListener("click", () => { fitToWidth = true; fitDocumentToWidth(); });
   $("#scheduleFullscreen").addEventListener("click", toggleScheduleFullscreen);
-  document.addEventListener("fullscreenchange", syncScheduleFullscreenButton);
   $("#docxInput").addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!isAdmin()) { e.target.value = ""; return; }
@@ -395,11 +402,9 @@
           headers: { "Content-Type": DOCX_MIME },
           body: file
         });
-        $("#scheduleFileStatus").textContent = "Опубликовано для всех посетителей";
         showToast("Расписание опубликовано на сайте.");
       } catch (error) {
         console.error("Не удалось сохранить расписание:", error);
-        $("#scheduleFileStatus").textContent = "Не удалось опубликовать расписание";
         showToast(error.status === 401 ? "Сессия истекла. Войдите снова." : "Документ открыт, но не опубликован на сайте.");
       }
     } else showToast("Не удалось открыть файл расписания.");
