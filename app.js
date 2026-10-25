@@ -166,7 +166,9 @@
 
   function updateZoom() {
     $("#zoomLevel").textContent = `${Math.round(docZoom * 100)}%`;
-    $("#docxPreview").style.zoom = String(docZoom);
+    const preview = $("#docxPreview");
+    preview.style.transform = `scale(${docZoom})`;
+    preview.style.transformOrigin = "top left";
   }
   function fitDocumentToWidth() {
     const canvas = $("#documentCanvas");
@@ -206,6 +208,13 @@
 
     // Clone the document content to the fullscreen overlay
     fullscreenDoc.innerHTML = docContent;
+
+    // Apply the current zoom to the fullscreen document
+    const fullscreenPreview = fullscreenDoc.querySelector(".docx-preview");
+    if (fullscreenPreview) {
+      fullscreenPreview.style.transform = `scale(${docZoom})`;
+      fullscreenPreview.style.transformOrigin = "top left";
+    }
 
     // Show the overlay
     overlay.hidden = false;
