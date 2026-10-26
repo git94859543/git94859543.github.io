@@ -265,8 +265,7 @@
         : await fetch(new URL(SCHEDULE_KEY, document.baseURI), { cache: "no-cache" });
       if (!response.ok) throw new Error("missing schedule");
       const loaded = await renderScheduleFile(await response.blob(), SCHEDULE_KEY);
-      if (loaded && API_BASE) $("#scheduleFileStatus").textContent = "Общее расписание сайта";
-      if (!loaded) $("#scheduleErrorMessage").textContent = `Не удалось отобразить ${SCHEDULE_KEY}. Проверьте файл и обновите страницу.`;
+            if (!loaded) $("#scheduleErrorMessage").textContent = `Не удалось отобразить ${SCHEDULE_KEY}. Проверьте файл и обновите страницу.`;
     } catch {
       $("#scheduleFileStatus").textContent = "Не удалось загрузить schedule.docx";
       $("#scheduleErrorMessage").textContent = API_BASE
