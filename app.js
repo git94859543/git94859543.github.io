@@ -19,6 +19,7 @@
   let adminCategory = "zoom";
   let docZoom = 1;
   let fitToWidth = false;
+  let fullscreenZoom = 1;
   let toastTimer;
 
   function makeId() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
@@ -171,23 +172,11 @@
     preview.style.transformOrigin = "top left";
   }
   function fitDocumentToWidth() {
-    const canvas = $("#documentCanvas");
-    const preview = $("#docxPreview");
-    const zoomFactor = docZoom || 1;
-    const page = preview.querySelector(".docx");
-    const previewStyle = getComputedStyle(preview);
-    const previewPadding = parseFloat(previewStyle.paddingLeft) + parseFloat(previewStyle.paddingRight);
-    const pageWidth = page ? page.getBoundingClientRect().width / zoomFactor : 0;
-    const contentWidth = Math.max(preview.getBoundingClientRect().width / zoomFactor, pageWidth + previewPadding);
-    const styles = getComputedStyle(canvas);
-    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-    const availableWidth = canvas.clientWidth - horizontalPadding;
-    if (contentWidth > 0 && availableWidth > 0) {
-      docZoom = Math.max(.3, Math.min(1, +(availableWidth / contentWidth).toFixed(3)));
-    } else {
-      docZoom = 1;
-    }
+    // Reset to 100% zoom instead of calculating fit-to-width
+    docZoom = 1;
+    fitToWidth = false;
     updateZoom();
+    const canvas = $("#documentCanvas");
     canvas.scrollLeft = 0;
     canvas.scrollTop = 0;
   }
@@ -209,11 +198,27 @@
     // Clone the document content to the fullscreen overlay
     fullscreenDoc.innerHTML = docContent;
 
-    // Apply the current zoom to the fullscreen document
+    // Initialize fullscreen zoom to 100%
+    fullscreenZoom = 1;
+    updateFullscreenZoom();
+
+    // Calculate zoom to fit the document to the fullscreen viewport width after a short delay
     const fullscreenPreview = fullscreenDoc.querySelector(".docx-preview");
     if (fullscreenPreview) {
-      fullscreenPreview.style.transform = `scale(${docZoom})`;
-      fullscreenPreview.style.transformOrigin = "top left";
+      // Get the document page width
+      const page = fullscreenPreview.querySelector(".docx");
+      if (page) {
+        // Wait for layout to be calculated
+        requestAnimationFrame(() => {
+          const pageWidth = page.getBoundingClientRect().width;
+          const viewportWidth = window.innerWidth - 48; // Account for padding
+          const zoomToFit = Math.min(1, viewportWidth / pageWidth);
+
+          // Use CSS zoom property for fullscreen (changes layout size, works with scrolling)
+          fullscreenZoom = zoomToFit;
+          updateFullscreenZoom();
+        });
+      }
     }
 
     // Show the overlay
@@ -224,6 +229,18 @@
     setTimeout(() => $("#scheduleFullscreenClose").focus(), 50);
 
     syncScheduleFullscreenButton();
+  }
+
+  function updateFullscreenZoom() {
+    const fullscreenPreview = $("#fullscreenDocument .docx-preview");
+    const fullscreenZoomLevel = $("#fullscreenZoomLevel");
+    if (fullscreenPreview) {
+      fullscreenPreview.style.zoom = String(fullscreenZoom);
+      fullscreenPreview.style.transform = "none";
+    }
+    if (fullscreenZoomLevel) {
+      fullscreenZoomLevel.textContent = `${Math.round(fullscreenZoom * 100)}%`;
+    }
   }
   function closeScheduleFullscreen() {
     const overlay = $("#scheduleFullscreenOverlay");
@@ -395,10 +412,32 @@
     closeModal("adminModal"); resetLinkForm(); showToast("Вы вышли из панели администратора.");
   });
 
+  function getMinZoom() {
+    // On mobile, minimum zoom is 100% (1.0), on PC/tablet it can go lower
+    const device = document.documentElement.dataset.device;
+    return device === "phone" ? 1 : 0.5;
+  }
+
   $("#zoomIn").addEventListener("click", () => { fitToWidth = false; docZoom = Math.min(2, +(docZoom + .1).toFixed(2)); updateZoom(); });
-  $("#zoomOut").addEventListener("click", () => { fitToWidth = false; docZoom = Math.max(.5, +(docZoom - .1).toFixed(2)); updateZoom(); });
+  $("#zoomOut").addEventListener("click", () => { fitToWidth = false; docZoom = Math.max(getMinZoom(), +(docZoom - .1).toFixed(2)); updateZoom(); });
   $("#fitDoc").addEventListener("click", () => { fitToWidth = true; fitDocumentToWidth(); });
   $("#scheduleFullscreen").addEventListener("click", toggleScheduleFullscreen);
+
+  // Fullscreen zoom controls
+  $("#fullscreenZoomIn").addEventListener("click", () => { fullscreenZoom = Math.min(2, +(fullscreenZoom + .1).toFixed(2)); updateFullscreenZoom(); });
+  $("#fullscreenZoomOut").addEventListener("click", () => { fullscreenZoom = Math.max(getMinZoom(), +(fullscreenZoom - .1).toFixed(2)); updateFullscreenZoom(); });
+  $("#fullscreenFitWidth").addEventListener("click", () => {
+    const fullscreenPreview = $("#fullscreenDocument .docx-preview");
+    if (fullscreenPreview) {
+      const page = fullscreenPreview.querySelector(".docx");
+      if (page) {
+        const pageWidth = page.getBoundingClientRect().width / fullscreenZoom;
+        const viewportWidth = window.innerWidth - 48;
+        fullscreenZoom = Math.min(1, viewportWidth / pageWidth);
+        updateFullscreenZoom();
+      }
+    }
+  });
   $("#docxInput").addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!isAdmin()) { e.target.value = ""; return; }

@@ -97,9 +97,15 @@
 
   <!-- Fullscreen document overlay -->
   <div class="fullscreen-overlay" id="scheduleFullscreenOverlay" hidden role="dialog" aria-modal="true" aria-label="Расписание на весь экран">
-    <button class="fullscreen-close" id="scheduleFullscreenClose" aria-label="Закрыть полноэкранное расписание" title="Закрыть">
-      <img src="assets/fullscreen-exit.svg" alt="">
-    </button>
+    <div class="fullscreen-toolbar">
+      <button class="icon-button fullscreen-zoom-out" id="fullscreenZoomOut" title="Уменьшить" aria-label="Уменьшить">−</button>
+      <span class="fullscreen-zoom-level" id="fullscreenZoomLevel">100%</span>
+      <button class="icon-button fullscreen-zoom-in" id="fullscreenZoomIn" title="Увеличить" aria-label="Увеличить">+</button>
+      <button class="icon-button fullscreen-fit-width" id="fullscreenFitWidth" title="По ширине" aria-label="По ширине"><img src="assets/fit-width.svg" alt=""></button>
+      <button class="fullscreen-close" id="scheduleFullscreenClose" aria-label="Закрыть полноэкранное расписание" title="Закрыть">
+        <img src="assets/fullscreen-exit.svg" alt="">
+      </button>
+    </div>
     <div class="fullscreen-document" id="fullscreenDocument"></div>
   </div>
 
