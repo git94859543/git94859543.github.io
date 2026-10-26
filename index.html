@@ -42,7 +42,7 @@
       <section class="view-panel" id="view-schedule">
         <div class="schedule-toolbar glass">
           <div class="file-info"><span class="file-icon">DOC</span><div><strong id="scheduleFileName">schedule.docx</strong></div></div>
-          <div class="toolbar-actions"><label class="button button-secondary upload-button admin-only" for="docxInput" hidden>↑ Загрузить DOCX</label><input id="docxInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden><span class="toolbar-divider"></span><button class="icon-button small" id="zoomOut" title="Уменьшить" aria-label="Уменьшить">−</button><span id="zoomLevel" class="zoom-level">100%</span><button class="icon-button small" id="zoomIn" title="Увеличить" aria-label="Увеличить">+</button><button class="button button-secondary toolbar-icon-button" id="fitDoc" type="button" title="По ширине" aria-label="По ширине"><img src="assets/fit-width.svg" alt=""></button><button class="button button-secondary toolbar-icon-button" id="scheduleFullscreen" type="button" title="На весь экран" aria-label="Открыть расписание на весь экран" aria-pressed="false"><img id="scheduleFullscreenIcon" src="assets/fullscreen.svg" alt=""></button></div>
+          <div class="toolbar-actions"><label class="button button-secondary upload-button admin-only" for="docxInput" hidden>↑ Загрузить DOCX</label><input id="docxInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden><span class="toolbar-divider"></span><button class="icon-button small" id="zoomOut" title="Уменьшить" aria-label="Уменьшить">−</button><span id="zoomLevel" class="zoom-level">100%</span><button class="icon-button small" id="zoomIn" title="Увеличить" aria-label="Увеличить">+</button><button class="button button-secondary toolbar-icon-button" id="fitDoc" type="button" title="Сбросить до 100%" aria-label="Сбросить масштаб до 100%"><img src="assets/fit-width.svg" alt=""></button></div>
         </div>
         <div class="document-card glass">
           <div class="document-canvas" id="documentCanvas">
@@ -94,20 +94,6 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <!-- Fullscreen document overlay -->
-  <div class="fullscreen-overlay" id="scheduleFullscreenOverlay" hidden role="dialog" aria-modal="true" aria-label="Расписание на весь экран">
-    <div class="fullscreen-toolbar">
-      <button class="icon-button fullscreen-zoom-out" id="fullscreenZoomOut" title="Уменьшить" aria-label="Уменьшить">−</button>
-      <span class="fullscreen-zoom-level" id="fullscreenZoomLevel">100%</span>
-      <button class="icon-button fullscreen-zoom-in" id="fullscreenZoomIn" title="Увеличить" aria-label="Увеличить">+</button>
-      <button class="icon-button fullscreen-fit-width" id="fullscreenFitWidth" title="По ширине" aria-label="По ширине"><img src="assets/fit-width.svg" alt=""></button>
-      <button class="fullscreen-close" id="scheduleFullscreenClose" aria-label="Закрыть полноэкранное расписание" title="Закрыть">
-        <img src="assets/fullscreen-exit.svg" alt="">
-      </button>
-    </div>
-    <div class="fullscreen-document" id="fullscreenDocument"></div>
-  </div>
 
   <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://unpkg.com/docx-preview@0.4.1/dist/docx-preview.min.js"></script>

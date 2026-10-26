@@ -19,7 +19,6 @@
   let adminCategory = "zoom";
   let docZoom = 1;
   let fitToWidth = false;
-  let fullscreenZoom = 1;
   let toastTimer;
 
   function makeId() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
@@ -180,84 +179,7 @@
     canvas.scrollLeft = 0;
     canvas.scrollTop = 0;
   }
-  function syncScheduleFullscreenButton() {
-    const overlay = $("#scheduleFullscreenOverlay");
-    const active = !overlay.hidden;
-    const button = $("#scheduleFullscreen");
-    $("#scheduleFullscreenIcon").src = active ? "assets/fullscreen-exit.svg" : "assets/fullscreen.svg";
-    button.title = active ? "Свернуть расписание" : "На весь экран";
-    button.setAttribute("aria-pressed", String(active));
-    button.setAttribute("aria-label", active ? "Выйти из полноэкранного режима расписания" : "Открыть расписание на весь экран");
-  }
-  function openScheduleFullscreen() {
-    const overlay = $("#scheduleFullscreenOverlay");
-    const preview = $("#docxPreview");
-    const docContent = preview.innerHTML;
-    const fullscreenDoc = $("#fullscreenDocument");
-
-    // Clone the document content to the fullscreen overlay
-    fullscreenDoc.innerHTML = docContent;
-
-    // Initialize fullscreen zoom to 100%
-    fullscreenZoom = 1;
-    updateFullscreenZoom();
-
-    // Calculate zoom to fit the document to the fullscreen viewport width after a short delay
-    const fullscreenPreview = fullscreenDoc.querySelector(".docx-preview");
-    if (fullscreenPreview) {
-      // Get the document page width
-      const page = fullscreenPreview.querySelector(".docx");
-      if (page) {
-        // Wait for layout to be calculated
-        requestAnimationFrame(() => {
-          const pageWidth = page.getBoundingClientRect().width;
-          const viewportWidth = window.innerWidth - 48; // Account for padding
-          const zoomToFit = Math.min(1, viewportWidth / pageWidth);
-
-          // Use CSS zoom property for fullscreen (changes layout size, works with scrolling)
-          fullscreenZoom = zoomToFit;
-          updateFullscreenZoom();
-        });
-      }
-    }
-
-    // Show the overlay
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-
-    // Focus the close button for accessibility
-    setTimeout(() => $("#scheduleFullscreenClose").focus(), 50);
-
-    syncScheduleFullscreenButton();
-  }
-
-  function updateFullscreenZoom() {
-    const fullscreenPreview = $("#fullscreenDocument .docx-preview");
-    const fullscreenZoomLevel = $("#fullscreenZoomLevel");
-    if (fullscreenPreview) {
-      fullscreenPreview.style.zoom = String(fullscreenZoom);
-      fullscreenPreview.style.transform = "none";
-    }
-    if (fullscreenZoomLevel) {
-      fullscreenZoomLevel.textContent = `${Math.round(fullscreenZoom * 100)}%`;
-    }
-  }
-  function closeScheduleFullscreen() {
-    const overlay = $("#scheduleFullscreenOverlay");
-    overlay.hidden = true;
-    document.body.style.overflow = "";
-    $("#fullscreenDocument").innerHTML = "";
-    syncScheduleFullscreenButton();
-  }
-  function toggleScheduleFullscreen() {
-    const overlay = $("#scheduleFullscreenOverlay");
-    if (overlay.hidden) {
-      openScheduleFullscreen();
-    } else {
-      closeScheduleFullscreen();
-    }
-  }
-  async function renderScheduleFile(file, fileName) {
+    async function renderScheduleFile(file, fileName) {
     $("#scheduleFileName").textContent = fileName;
     $("#emptyDocument").hidden = true; $("#docxPreview").hidden = false; $("#docxPreview").innerHTML = "";
     try {
@@ -421,23 +343,6 @@
   $("#zoomIn").addEventListener("click", () => { fitToWidth = false; docZoom = Math.min(2, +(docZoom + .1).toFixed(2)); updateZoom(); });
   $("#zoomOut").addEventListener("click", () => { fitToWidth = false; docZoom = Math.max(getMinZoom(), +(docZoom - .1).toFixed(2)); updateZoom(); });
   $("#fitDoc").addEventListener("click", () => { fitToWidth = true; fitDocumentToWidth(); });
-  $("#scheduleFullscreen").addEventListener("click", toggleScheduleFullscreen);
-
-  // Fullscreen zoom controls
-  $("#fullscreenZoomIn").addEventListener("click", () => { fullscreenZoom = Math.min(2, +(fullscreenZoom + .1).toFixed(2)); updateFullscreenZoom(); });
-  $("#fullscreenZoomOut").addEventListener("click", () => { fullscreenZoom = Math.max(getMinZoom(), +(fullscreenZoom - .1).toFixed(2)); updateFullscreenZoom(); });
-  $("#fullscreenFitWidth").addEventListener("click", () => {
-    const fullscreenPreview = $("#fullscreenDocument .docx-preview");
-    if (fullscreenPreview) {
-      const page = fullscreenPreview.querySelector(".docx");
-      if (page) {
-        const pageWidth = page.getBoundingClientRect().width / fullscreenZoom;
-        const viewportWidth = window.innerWidth - 48;
-        fullscreenZoom = Math.min(1, viewportWidth / pageWidth);
-        updateFullscreenZoom();
-      }
-    }
-  });
   $("#docxInput").addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!isAdmin()) { e.target.value = ""; return; }
